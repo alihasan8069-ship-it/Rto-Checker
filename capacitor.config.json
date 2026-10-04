@@ -1,6 +1,0 @@
-{
-  "appId": "com.rto.returns.scanner",
-  "appName": "RTO Return Scanner",
-  "webDir": "www",
-  "server": { "androidScheme": "https" }
-}

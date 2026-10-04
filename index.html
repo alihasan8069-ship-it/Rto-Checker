@@ -1,0 +1,329 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>RTO & Return Scanner</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<header class="topbar">
+  <div>
+    <h1>RTO & Customer Return Scanner</h1>
+    <span class="sub">Offline-first parcel verification</span>
+  </div>
+  <div class="session">
+    <span id="offlineStatus" class="offline-status offline">OFFLINE-READY • LOCAL DATA ACTIVE</span><span id="dbStatus" class="db-status">LOCAL DATABASE: STARTING…</span><span id="sessionId">No session</span>
+    <label class="return-type-control">Return Type<select id="returnType"><option value="RTO">RTO</option><option value="CUSTOMER_RETURN">Customer Return</option><option value="BOTH">Both</option></select></label><button id="newSessionBtn">New Session</button><button id="sessionHistoryBtn">Session History</button><button id="securityBtn">Security</button><button id="backupBtn">BACKUP DATA</button><button id="restoreBtn">RESTORE BACKUP</button><input id="restoreFile" type="file" accept="application/json,.json" hidden>
+  </div>
+</header>
+
+<section class="dashboard">
+  <div class="stat"><b id="total">0</b><span>TOTAL</span></div>
+  <div class="stat success"><b id="scanned">0</b><span>SCANNED</span></div>
+  <div class="stat pending"><b id="pending">0</b><span>PENDING</span></div>
+  <div class="stat warning"><b id="duplicate">0</b><span>DUPLICATE</span></div>
+  <div class="stat danger"><b id="unknown">0</b><span>UNKNOWN</span></div>
+  <div class="stat danger"><b id="wrong">0</b><span>WRONG COURIER</span></div>
+</section>
+
+<section class="pro-dashboard">
+  <div class="pro-card pro-overview">
+    <div class="pro-card-head">
+      <div>
+        <h2>Professional Dashboard</h2>
+        <p>Live session overview</p>
+      </div>
+      <span id="dashboardState" class="dashboard-badge">READY</span>
+    </div>
+    <div class="overview-grid">
+      <div class="progress-ring-wrap">
+        <div id="dashboardRing" class="progress-ring" style="--progress:0">
+          <div class="progress-ring-inner">
+            <strong id="dashboardPercent">0%</strong>
+            <span>complete</span>
+          </div>
+        </div>
+      </div>
+      <div class="overview-metrics">
+        <div class="overview-metric"><span>Expected</span><b id="dashTotal">0</b></div>
+        <div class="overview-metric"><span>Successfully scanned</span><b id="dashScanned">0</b></div>
+        <div class="overview-metric"><span>Still pending</span><b id="dashPending">0</b></div>
+        <div class="overview-metric"><span>Scan attempts</span><b id="dashAttempts">0</b></div>
+      </div>
+    </div>
+    <div class="dash-progress">
+      <div class="dash-progress-label"><span>Scanning progress</span><b id="dashProgressText">0 / 0</b></div>
+      <div class="dash-progress-track"><div id="dashProgressBar"></div></div>
+    </div>
+  </div>
+
+  <div class="pro-card">
+    <div class="pro-card-head">
+      <div><h2>Scan Status</h2><p>Current validation results</p></div>
+    </div>
+    <div class="status-list">
+      <div class="status-row"><span><i class="status-dot valid"></i>Valid / Scanned</span><b id="dashValid">0</b></div>
+      <div class="status-row"><span><i class="status-dot duplicate"></i>Duplicate attempts</span><b id="dashDuplicate">0</b></div>
+      <div class="status-row"><span><i class="status-dot unknown"></i>Unknown barcodes</span><b id="dashUnknown">0</b></div>
+      <div class="status-row"><span><i class="status-dot wrong"></i>Wrong courier</span><b id="dashWrong">0</b></div>
+      <div class="status-row"><span><i class="status-dot pending"></i>Pending parcels</span><b id="dashPendingStatus">0</b></div>
+    </div>
+  </div>
+
+  <div class="pro-card">
+    <div class="pro-card-head">
+      <div><h2>Session Health</h2><p>Current session information</p></div>
+    </div>
+    <div class="health-list">
+      <div><span>Session</span><b id="dashSession">—</b></div>
+      <div><span>Return type</span><b id="dashReturnType">—</b></div>
+      <div><span>Scanner</span><b id="dashScannerState">PAUSED</b></div>
+      <div><span>Database</span><b id="dashDbState">READY</b></div>
+    </div>
+    <div class="dashboard-actions">
+      <button id="dashStartScan" class="primary">START SCANNING</button>
+      <button id="dashPendingBtn">VIEW PENDING</button>
+    </div>
+  </div>
+</section>
+
+<section class="courier-dashboard-section">
+  <div class="courier-dashboard-head">
+    <div>
+      <h2>Courier Dashboard</h2>
+      <p>Courier-wise workload, scanning progress and pending parcels</p>
+    </div>
+    <span id="courierDashUpdated">LIVE</span>
+  </div>
+  <div id="courierDashboardCards" class="courier-dashboard-cards"></div>
+  <div class="courier-table-wrap">
+    <table class="courier-dashboard-table">
+      <thead><tr><th>Courier</th><th>Total</th><th>Scanned</th><th>Pending</th><th>Progress</th><th>Duplicates</th><th>Wrong Courier</th></tr></thead>
+      <tbody id="courierDashboardRows"></tbody>
+    </table>
+  </div>
+</section>
+
+<section class="production-status">
+  <div><b>V24 Production Mode</b><span id="appVersion">V24</span></div>
+  <div><span id="autosaveStatus">Autosave active</span><span id="runtimeStatus">Runtime checks active</span></div>
+</section>
+
+<main class="layout">
+  <section class="scanner-card">
+    <div class="section-head">
+      <h2>Scan Parcel</h2>
+      <label class="toggle"><input type="checkbox" id="bulkMode" checked> Bulk Scan</label>
+    </div>
+
+    <div class="camera-panel">
+      <div class="section-head">
+        <h2>Camera Scanner</h2>
+        <span id="cameraState" class="camera-state">CAMERA OFF</span>
+      </div>
+      <div class="camera-frame">
+        <video id="cameraVideo" playsinline autoplay muted></video>
+        <div class="scan-guide"><span></span></div>
+        <div id="cameraMessage">Start Camera to scan a parcel barcode</div>
+      </div>
+      <div class="camera-actions">
+        <button id="cameraStartBtn" class="primary">START CAMERA</button>
+        <button id="cameraStopBtn">STOP</button>
+        <button id="torchBtn">FLASHLIGHT OFF</button>
+      </div>
+      <div class="camera-options">
+        <label>Camera
+          <select id="cameraSelect"><option value="">Default rear camera</option></select>
+        </label>
+        <span>Formats: Code 128 · Code 39 · EAN-13 · EAN-8 · UPC · QR</span>
+      </div>
+    </div>
+    <div class="hardware-panel">
+      <div class="section-head">
+        <h2>Hardware Scanner</h2>
+        <label class="toggle"><input type="checkbox" id="hardwareAuto" checked> AUTO INPUT</label>
+      </div>
+      <div class="hardware-status"><span id="hardwareState" class="hardware-dot"></span><b id="hardwareText">READY — USB/Bluetooth scanner can scan now</b></div>
+      <div class="hardware-hint">USB/Bluetooth scanners that type barcode + Enter are detected automatically. No scan button is required.</div>
+    </div>
+    <div id="scanStatus" class="scan-status ready">READY TO SCAN</div>
+    <input id="barcodeInput" class="barcode-input" autocomplete="off"
+           placeholder="Scan barcode here..." autofocus>
+    <div class="actions">
+      <button id="startBtn" class="primary">START SCAN</button>
+      <button id="stopBtn">STOP SCAN</button>
+      <button id="searchBtn">SEARCH</button>
+    </div>
+    <div id="lastResult" class="result">Waiting for barcode...</div>
+
+    <div class="progress-wrap">
+      <div class="progress-label"><span>Progress</span><b id="progressText">0 / 0</b></div>
+      <div class="progress"><div id="progressBar"></div></div>
+      <div id="validationStatus" class="validation-status">VALIDATION ENGINE: READY</div>
+    </div>
+  </section>
+
+  <aside class="couriers">
+    <div class="section-head">
+      <h2>Couriers</h2>
+      <label><input type="checkbox" id="allCouriers"> ALL</label>
+    </div>
+    <div id="courierList"></div>
+    <div class="import-box">
+      <h3>Courier Excel Import</h3>
+      <select id="importCourier">
+        <option>Delivery</option><option>Shadowfax</option><option>XpressBees</option><option>Valmo</option>
+      </select>
+      <label class="import-type">Return Type for these files<select id="importReturnType"><option value="RTO">RTO</option><option value="CUSTOMER_RETURN">Customer Return</option><option value="BOTH">Both</option></select></label>
+      <input id="excelFile" type="file" accept=".xlsx,.xls,.csv" multiple>
+      <button id="importBtn" class="secondary full">IMPORT SELECTED EXCEL FILES</button>
+      <div id="multiImportList" class="import-summary"></div>
+      <button id="demoBtn" class="full">ADD DEMO DATA</button>
+      <div id="importSummary" class="import-summary"></div>
+      <div class="mapping-memory"><div id="mappingMemoryStatus"></div><button id="clearMappingMemoryBtn" class="secondary">CLEAR SAVED MAPPING</button></div>
+    </div>
+    <div class="import-box">
+      <h3>Return / RTO Excel</h3>
+      <label class="import-type">Return Type<select id="returnFileType"><option value="RTO">RTO</option><option value="CUSTOMER_RETURN">Customer Return</option><option value="BOTH">Both</option></select></label>
+      <input id="returnFile" type="file" accept=".xlsx,.xls,.csv" multiple>
+      <button id="returnBtn" class="secondary full">IMPORT RETURN FILES</button>
+      <div id="returnSummary" class="import-summary"></div>
+    </div>
+  </aside>
+</main>
+
+<section class="performance-section" id="performanceLabSection">
+  <div class="section-head">
+    <div><h2>⚡ Performance Test Lab</h2><p class="history-note">Run local stress tests without changing your real session data.</p></div>
+    <div class="actions"><button id="runPerfTests" class="primary">RUN PERFORMANCE TESTS</button><button id="clearPerfResults" class="secondary">CLEAR</button></div>
+  </div>
+  <div class="perf-grid">
+    <div class="perf-card"><b>1,000</b><span>records</span><strong id="perf1k">—</strong></div>
+    <div class="perf-card"><b>10,000</b><span>records</span><strong id="perf10k">—</strong></div>
+    <div class="perf-card"><b>50,000+</b><span>records</span><strong id="perf50k">—</strong></div>
+  </div>
+  <div id="perfResults" class="perf-results">No performance test has been run yet.</div>
+</section>
+
+<section class="warehouse-test-section" id="warehouseTestSection">
+  <div class="section-head">
+    <div><h2>🧪 V21 Real Warehouse Test</h2><p class="history-note">10,000-record controlled simulation. This test does not modify your real session or database.</p></div>
+    <div class="actions"><button id="runWarehouseTest" class="primary">RUN WAREHOUSE TEST</button><button id="clearWarehouseTest" class="secondary">CLEAR</button></div>
+  </div>
+  <div class="warehouse-grid">
+    <div class="perf-card"><b>10,000</b><span>Expected</span><strong id="whExpected">—</strong></div>
+    <div class="perf-card"><b>8,500</b><span>Valid Unique</span><strong id="whValid">—</strong></div>
+    <div class="perf-card"><b>500</b><span>Duplicate</span><strong id="whDuplicate">—</strong></div>
+    <div class="perf-card"><b>300</b><span>Unknown</span><strong id="whUnknown">—</strong></div>
+    <div class="perf-card"><b>200</b><span>Wrong Courier</span><strong id="whWrong">—</strong></div>
+    <div class="perf-card"><b>Pending</b><span>Mathematically derived</span><strong id="whPending">—</strong></div>
+  </div>
+  <div id="warehouseTestResults" class="perf-results">No warehouse test has been run yet.</div>
+</section>
+
+<section class="table-card">
+  <div class="section-head">
+    <h2>Reports & Session</h2>
+    <button id="clearBtn" class="danger-btn">CLEAR SESSION DATA</button>
+  </div>
+  <div class="report-grid">
+    <button id="completeReport">Complete Report</button>
+    <button id="pendingReport">Pending Report</button>
+    <button id="duplicateReport">Duplicate Report</button>
+    <button id="unknownReport">Unknown Report</button>
+    <button id="wrongReport">Wrong Courier Report</button>
+    <button id="summaryReport" class="primary">Courier Summary</button>
+  </div>
+  <div id="sessionSummary" class="session-summary"></div>
+  <section class="selective-delete-panel">
+    <div class="section-head"><div><h2>Selective Delete</h2><p class="history-note">Select records with ticks, then remove them from the current session database.</p></div><div class="delete-toolbar"><button id="selectAllDelete" class="secondary">SELECT ALL</button><button id="clearAllDelete">CLEAR</button><button id="deleteSelectedBtn" class="danger-btn">REMOVE SELECTED (0)</button></div></div>
+    <div class="delete-summary"><span id="deleteSelectedCount">0 selected</span><span>Only current-session records are affected.</span></div>
+    <div class="table-scroll selective-delete-scroll"><table><thead><tr><th><input id="deleteMasterCheck" type="checkbox" aria-label="Select all records"></th><th>Barcode</th><th>Courier</th><th>Return Type</th><th>Status</th><th>Scan Time</th></tr></thead><tbody id="selectiveDeleteRows"></tbody></table></div>
+    <div id="deleteEmptyState" class="search-empty hidden">No current-session records to select.</div>
+  </section>
+  <div class="section-head" style="margin-top:18px">
+    <h2>Recent Scan Records</h2>
+  </div>
+  <div class="table-scroll">
+    <table>
+      <thead><tr><th>Barcode</th><th>Courier</th><th>Return Type</th><th>Status</th><th>Time</th></tr></thead>
+      <tbody id="records"></tbody>
+    </table>
+  </div>
+</section>
+
+<div id="mappingModal" class="modal hidden">
+  <div class="modal-card">
+    <h2>Excel Column Mapping</h2>
+    <p id="mappingInfo"></p>
+    <label class="import-type">Barcode / AWB Column<select id="barcodeColumn"></select></label>
+    <label class="import-type">Order Column<select id="orderColumn"></select></label>
+    <label class="import-type">Courier Column<select id="courierColumn"></select></label>
+    <p class="mapping-help">These mappings are remembered for future Excel imports and auto-suggested when the same column names are found.</p>
+    <div class="actions"><button id="cancelMapping">CANCEL</button><button id="confirmMapping" class="primary">SAVE MAPPING & IMPORT</button></div>
+  </div>
+</div>
+
+<div id="importValidationModal" class="modal hidden">
+  <div class="modal-card validation-modal-card">
+    <h2>Excel Import Validation</h2>
+    <p id="importValidationInfo"></p>
+    <div id="importValidationStatus" class="validation-status-box warning">VALIDATING…</div>
+    <div id="importValidationResults" class="validation-results"></div>
+    <p class="validation-note">Blank and duplicate rows are reported before import. Barcode values marked malformed are not silently accepted.</p>
+    <div class="validation-actions"><button id="cancelImportValidation">CANCEL</button><button id="confirmValidatedImport" class="primary">IMPORT VALIDATED DATA</button></div>
+  </div>
+</div>
+
+<div id="searchModal" class="modal hidden">
+  <div class="modal-card search-modal-card">
+    <div class="section-head"><div><h2>Search Barcode / AWB</h2><p class="history-note">Search current data and saved session history.</p></div><button id="closeSearchBtn">CLOSE</button></div>
+    <div class="search-box-row"><input id="globalSearchInput" class="global-search-input" autocomplete="off" placeholder="Enter Barcode / AWB / Session ID..."><button id="globalSearchGo" class="primary">SEARCH</button></div>
+    <div id="searchSummary" class="search-summary">Enter a barcode/AWB and press Search.</div>
+    <div id="searchResults" class="search-results"></div>
+  </div>
+</div>
+
+<div id="sessionHistoryModal" class="modal hidden">
+  <div class="modal-card history-modal-card">
+    <div class="section-head"><h2>Session History</h2><button id="closeHistoryBtn">CLOSE</button></div>
+    <p class="history-note">Saved sessions remain available after app restart. Continue opens the selected session with its own expected data and scan records.</p>
+    <div id="sessionHistoryList" class="session-history-list"></div>
+  </div>
+</div>
+
+
+<div id="securityModal" class="modal hidden">
+  <div class="modal-card">
+    <div class="section-head"><h2>Security — PIN Lock</h2><button id="closeSecurityBtn">CLOSE</button></div>
+    <p>Protect this app with a local PIN. The PIN itself is never stored.</p>
+    <label>PIN <input id="pinInput" type="password" inputmode="numeric" maxlength="12" autocomplete="new-password"></label>
+    <label>Confirm PIN <input id="pinConfirmInput" type="password" inputmode="numeric" maxlength="12" autocomplete="new-password"></label>
+    <div class="actions"><button id="disablePinBtn" class="secondary">DISABLE PIN</button><button id="savePinBtn" class="primary">ENABLE / CHANGE PIN</button></div>
+    <p id="securityMessage" class="history-note"></p>
+  </div>
+</div>
+<div id="pinLock" class="completion hidden" style="z-index:9999;">
+  <div class="check">🔒</div><h2>APP LOCKED</h2><p>Enter your PIN to access scanner data.</p>
+  <input id="unlockPinInput" type="password" inputmode="numeric" maxlength="12" autocomplete="current-password" style="max-width:260px;margin:12px auto;display:block;">
+  <button id="unlockPinBtn" class="primary">UNLOCK</button><p id="unlockMessage"></p>
+</div>
+
+<div id="completion" class="completion hidden">
+  <div class="check">✓</div>
+  <h2 id="completionTitle">DONE SCANNING</h2>
+  <p id="completionText"></p>
+  <div class="completion-actions">
+    <button id="continueScanning">CONTINUE SCANNING</button>
+    <button id="viewPending" class="secondary">VIEW PENDING</button>
+    <button id="exportPending" class="secondary">EXPORT PENDING</button>
+    <button id="finishSession" class="primary">FINISH SESSION</button>
+  </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+<script src="https://unpkg.com/@zxing/browser@0.1.5/umd/index.min.js"></script>
+<script src="app.js"></script>
+</body>
+</html>

@@ -1,0 +1,6 @@
+Required/conditional permissions for the Android wrapper:
+- CAMERA — camera barcode scanning
+- POST_NOTIFICATIONS — optional notifications (Android 13+)
+- ACCESS_FINE_LOCATION / ACCESS_COARSE_LOCATION — only if location feature is used
+- READ_MEDIA_IMAGES / READ_MEDIA_VIDEO — only if media selection is used
+- INTERNET — not required for core offline scanning; Capacitor/WebView may declare normal network permission depending on plugins
